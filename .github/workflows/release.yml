@@ -1,0 +1,72 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: '选择要发布的分支'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+        - main
+        - develop
+      version:
+        description: '发布版本号 (例如: 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ github.event.inputs.branch }}
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Setup Gradle and Download Wrapper
+      run: |
+        gradle wrapper --gradle-version 8.3
+        ./gradlew --version
+
+    - name: Build with Gradle
+      run: ./gradlew build
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.event.inputs.version }}
+        release_name: Release v${{ github.event.inputs.version }}
+        draft: false
+        prerelease: false
+        body: |
+          LittleSkin 白名单验证插件 v${{ github.event.inputs.version }}
+          
+          ### 更新内容
+          - 这是第一版
+          
+          ### 使用说明
+          1. 下载插件 JAR 文件
+          2. 将文件放入 Velocity 服务器的 plugins 目录
+          3. 重启服务器
+          4. 编辑 plugins/littleskincheck/whitelist.json 管理白名单
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./build/libs/offlinewhitelistforvelocityRMS-${{ github.event.inputs.version }}.jar
+        asset_name: offlinewhitelistforvelocityRMS-${{ github.event.inputs.version }}.jar
+        asset_content_type: application/java-archive
