@@ -65,8 +65,9 @@ public class LittleSkinCheckPlugin {
         profile.getProperties().forEach(prop -> {
             logger.info("属性名: {}", prop.getName());
             logger.info("属性值: {}", prop.getValue());
-            if (prop.hasSignature()) {
-                logger.info("属性签名: {}", prop.getSignature());
+            Optional<String> signature = prop.getSignature();
+            if (signature.isPresent()) {
+                logger.info("属性签名: {}", signature.get());
             }
             
             if (prop.getName().equals("textures")) {
