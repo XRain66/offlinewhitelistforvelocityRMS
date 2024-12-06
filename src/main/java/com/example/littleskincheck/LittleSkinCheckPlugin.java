@@ -83,12 +83,20 @@ public class LittleSkinCheckPlugin {
 
     private String fetchLittleSkinProfile(String username) {
         try {
-            String apiUrl = "https://littleskin.cn/api/yggdrasil/api/profiles/minecraft/" + username;
+            // 使用正确的 API 端点
+            String apiUrl = "https://littleskin.cn/api/yggdrasil/sessionserver/session/minecraft/profile/" + username;
+            logger.info("正在从 {} 获取玩家信息", apiUrl);
+            
             URL url = new URL(apiUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
             
-            if (conn.getResponseCode() == 200) {
+            int responseCode = conn.getResponseCode();
+            logger.info("API 响应代码: {}", responseCode);
+            
+            if (responseCode == 200) {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 StringBuilder response = new StringBuilder();
                 String line;
@@ -98,16 +106,39 @@ public class LittleSkinCheckPlugin {
                 }
                 reader.close();
                 
-                JsonArray jsonArray = JsonParser.parseString(response.toString()).getAsJsonArray();
-                if (jsonArray.size() > 0) {
-                    JsonObject json = jsonArray.get(0).getAsJsonObject();
-                    if (json.has("properties")) {
-                        JsonArray properties = json.get("properties").getAsJsonArray();
-                        if (properties.size() > 0) {
-                            return properties.get(0).getAsJsonObject()
-                                .get("value").getAsString();
+                String responseBody = response.toString();
+                logger.info("API 响应内容: {}", responseBody);
+                
+                JsonObject jsonResponse = JsonParser.parseString(responseBody).getAsJsonObject();
+                
+                if (jsonResponse.has("properties")) {
+                    JsonArray properties = jsonResponse.getAsJsonArray("properties");
+                    for (JsonElement prop : properties) {
+                        JsonObject property = prop.getAsJsonObject();
+                        if ("textures".equals(property.get("name").getAsString())) {
+                            String value = property.get("value").getAsString();
+                            logger.info("成功获取到玩家 {} 的 textures 值", username);
+                            return value;
                         }
                     }
+                }
+                
+                logger.info("API 响应中没有找到 textures 属性");
+            } else if (responseCode == 404) {
+                logger.info("玩家 {} 不存在或未使用 LittleSkin", username);
+            } else {
+                logger.warn("API 请求失败，响应代码: {}", responseCode);
+                
+                // 读取错误信息
+                try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(conn.getErrorStream()))) {
+                    StringBuilder errorResponse = new StringBuilder();
+                    String line;
+                    while ((line = errorReader.readLine()) != null) {
+                        errorResponse.append(line);
+                    }
+                    logger.warn("错误响应: {}", errorResponse.toString());
+                } catch (Exception e) {
+                    logger.error("读取错误响应时出错", e);
                 }
             }
         } catch (Exception e) {
@@ -123,6 +154,12 @@ public class LittleSkinCheckPlugin {
         String username = player.getUsername();
         
         logger.info("玩家 {} 正在尝试登录...", username);
+        
+        // 检查是否为正版玩家
+        if (player.isOnlineMode()) {
+            logger.info("玩家 {} 是正版玩家，允许登录", username);
+            return;
+        }
         
         // 尝试从 LittleSkin API 获取玩家信息
         String texturesValue = fetchLittleSkinProfile(username);
@@ -168,6 +205,18 @@ public class LittleSkinCheckPlugin {
             }
         } else {
             logger.info("无法获取玩家 {} 的 LittleSkin 配置文件", username);
+            // 检查白名单
+            boolean isWhitelisted = whitelistManager.isWhitelisted(username);
+            logger.info("玩家 {} 是否在白名单中: {}", username, isWhitelisted);
+            
+            if (isWhitelisted) {
+                event.setResult(LoginEvent.ComponentResult.denied(Component.text(
+                    "您在白名单中，但必须使用 LittleSkin 验证登录",
+                    NamedTextColor.RED
+                )));
+                logger.info("玩家 {} 在白名单中但未使用 LittleSkin 验证，拒绝登录", username);
+                return;
+            }
         }
     }
 
