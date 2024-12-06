@@ -148,6 +148,29 @@ public class LittleSkinCheckPlugin {
         return null;
     }
 
+    private boolean isMojangPlayer(Player player) {
+        try {
+            GameProfile profile = player.getGameProfile();
+            Optional<GameProfile.Property> textures = profile.getProperties().stream()
+                .filter(prop -> "textures".equals(prop.getName()))
+                .findFirst();
+
+            if (textures.isPresent()) {
+                String value = textures.get().getValue();
+                if (value != null && !value.isEmpty()) {
+                    String decoded = new String(Base64.getDecoder().decode(value));
+                    logger.debug("玩家 {} 的皮肤信息: {}", player.getUsername(), decoded);
+                    // 检查是否包含 Mojang 的域名
+                    return decoded.contains("textures.minecraft.net");
+                }
+            }
+        } catch (Exception e) {
+            logger.error("检查玩家 {} 的正版状态时出错: {}", player.getUsername(), e.getMessage());
+            logger.debug("错误详情:", e);
+        }
+        return false;
+    }
+
     @Subscribe
     public void onLogin(LoginEvent event) {
         Player player = event.getPlayer();
@@ -156,7 +179,7 @@ public class LittleSkinCheckPlugin {
         logger.info("玩家 {} 正在尝试登录...", username);
         
         // 检查是否为正版玩家
-        if (player.isOnlineMode()) {
+        if (isMojangPlayer(player)) {
             logger.info("玩家 {} 是正版玩家，允许登录", username);
             return;
         }
