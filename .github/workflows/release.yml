@@ -15,6 +15,11 @@ on:
         description: '发布版本号 (例如: 1.0.0)'
         required: true
         type: string
+      prerelease:
+        description: '是否为预发布版本'
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -48,7 +53,7 @@ jobs:
         tag_name: v${{ github.event.inputs.version }}
         release_name: Release v${{ github.event.inputs.version }}
         draft: false
-        prerelease: false
+        prerelease: ${{ github.event.inputs.prerelease }}
         body: |
           LittleSkin 白名单验证插件 v${{ github.event.inputs.version }}
           
