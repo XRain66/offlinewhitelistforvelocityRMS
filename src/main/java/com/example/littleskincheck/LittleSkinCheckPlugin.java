@@ -81,23 +81,16 @@ public class LittleSkinCheckPlugin {
         
         logger.info("玩家 {} 正在尝试登录...", username);
         logger.info("检查玩家 {} 的属性...", username);
+        logger.info("玩家 {} 的所有属性: {}", username, profile.getProperties());
         
-        // 检查是否为离线模式
-        if (!player.isOnlineMode()) {
-            logger.info("玩家 {} 使用离线模式登录，跳过 LittleSkin 验证", username);
-            return;
-        }
+        // 获取所有属性并打印
+        profile.getProperties().forEach(prop -> {
+            logger.info("属性: {} = {}", prop.getName(), prop.getValue());
+            if (prop.getSignature() != null) {
+                logger.info("签名: {}", prop.getSignature());
+            }
+        });
 
-        // 检查玩家属性是否为空
-        if (profile.getProperties().isEmpty()) {
-            logger.info("玩家 {} 的属性列表为空", username);
-            player.disconnect(Component.text(
-                "无法获取玩家属性，请确保正确配置了游戏客户端",
-                NamedTextColor.RED
-            ));
-            return;
-        }
-        
         // 检查玩家的 textures 属性
         Optional<GameProfile.Property> textures = profile.getProperties().stream()
             .filter(prop -> "textures".equals(prop.getName()))
@@ -105,59 +98,33 @@ public class LittleSkinCheckPlugin {
 
         logger.info("玩家 {} 是否有 textures 属性: {}", username, textures.isPresent());
         
-        if (!textures.isPresent()) {
-            logger.info("玩家 {} 没有 textures 属性", username);
-            player.disconnect(Component.text(
-                "无法获取玩家皮肤信息，请确保正确配置了游戏客户端",
-                NamedTextColor.RED
-            ));
-            return;
-        }
-
-        try {
-            String value = textures.get().getValue();
-            logger.info("玩家 {} 的 textures 值: {}", username, value);
-            
-            if (value == null || value.isEmpty()) {
-                logger.info("玩家 {} 的 textures 值为空", username);
-                player.disconnect(Component.text(
-                    "无法获取玩家皮肤信息，请确保正确配置了游戏客户端",
-                    NamedTextColor.RED
-                ));
-                return;
-            }
-
-            String decoded;
+        boolean isLittleSkin = false;
+        if (textures.isPresent()) {
             try {
-                decoded = new String(Base64.getDecoder().decode(value));
-                logger.info("玩家 {} 的解码后 textures 值: {}", username, decoded);
-            } catch (IllegalArgumentException e) {
-                logger.error("解码玩家 {} 的 textures 值时出错: {}", username, e.getMessage());
-                player.disconnect(Component.text(
-                    "皮肤信息格式错误，请确保正确配置了游戏客户端",
-                    NamedTextColor.RED
-                ));
-                return;
+                String value = textures.get().getValue();
+                logger.info("玩家 {} 的 textures 值: {}", username, value);
+                
+                if (value != null && !value.isEmpty()) {
+                    String decoded = new String(Base64.getDecoder().decode(value));
+                    logger.info("玩家 {} 的解码后 textures 值: {}", username, decoded);
+                    
+                    if (decoded.contains("littleskin.cn")) {
+                        logger.info("检测到玩家 {} 使用 LittleSkin 验证", username);
+                        isLittleSkin = true;
+                        setLittleSkinAuthenticated(player, value);
+                    } else {
+                        logger.info("玩家 {} 未使用 LittleSkin 验证", username);
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("处理玩家 {} 的 textures 值时出错: {}", username, e.getMessage());
+                logger.debug("错误详情:", e);
             }
-            
-            if (decoded.contains("littleskin.cn")) {
-                logger.info("检测到玩家 {} 使用 LittleSkin 验证", username);
-                setLittleSkinAuthenticated(player, value);
-            } else {
-                logger.info("玩家 {} 未使用 LittleSkin 验证", username);
-            }
-        } catch (Exception e) {
-            logger.error("处理玩家 {} 的 textures 值时出错: {}", username, e.getMessage());
-            player.disconnect(Component.text(
-                "处理皮肤信息时出错，请稍后重试",
-                NamedTextColor.RED
-            ));
-            return;
         }
         
-        logger.info("玩家 {} 是否使用 LittleSkin 验证: {}", username, isLittleSkinAuthenticated(player));
+        logger.info("玩家 {} 是否使用 LittleSkin 验证: {}", username, isLittleSkin);
         
-        if (isLittleSkinAuthenticated(player)) {
+        if (isLittleSkin) {
             logger.info("检查玩家 {} 是否在白名单中...", username);
             boolean isWhitelisted = whitelistManager.isWhitelisted(username);
             logger.info("玩家 {} 是否在白名单中: {}", username, isWhitelisted);
