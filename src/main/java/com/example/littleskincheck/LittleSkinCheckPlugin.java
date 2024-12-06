@@ -47,19 +47,30 @@ public class LittleSkinCheckPlugin {
     }
 
     public void setLittleSkinAuthenticated(Player player, String token) {
-        littleSkinAuthenticatedPlayers.add(player.getUniqueId());
+        logger.info("正在设置玩家 {} 的 LittleSkin 认证状态...", player.getUsername());
+        UUID uuid = player.getUniqueId();
+        littleSkinAuthenticatedPlayers.add(uuid);
+        logger.info("已添加玩家 UUID {} 到认证列表", uuid);
+        
         if (token != null) {
-            littleSkinTokens.put(player.getUniqueId(), token);
+            littleSkinTokens.put(uuid, token);
+            logger.info("已保存玩家 {} 的认证令牌", player.getUsername());
         }
-        logger.info("已设置玩家 {} 的 LittleSkin 认证状态", player.getUsername());
+        
+        logger.info("玩家 {} 的 LittleSkin 认证状态设置完成", player.getUsername());
+        logger.info("当前认证玩家数量: {}", littleSkinAuthenticatedPlayers.size());
     }
 
     public boolean isLittleSkinAuthenticated(Player player) {
-        return littleSkinAuthenticatedPlayers.contains(player.getUniqueId());
+        boolean result = littleSkinAuthenticatedPlayers.contains(player.getUniqueId());
+        logger.info("检查玩家 {} 的认证状态: {}", player.getUsername(), result);
+        return result;
     }
 
     public String getLittleSkinToken(Player player) {
-        return littleSkinTokens.get(player.getUniqueId());
+        String token = littleSkinTokens.get(player.getUniqueId());
+        logger.info("获取玩家 {} 的认证令牌: {}", player.getUsername(), token != null ? "存在" : "不存在");
+        return token;
     }
 
     @Subscribe
@@ -69,22 +80,79 @@ public class LittleSkinCheckPlugin {
         String username = player.getUsername();
         
         logger.info("玩家 {} 正在尝试登录...", username);
+        logger.info("检查玩家 {} 的属性...", username);
+        
+        // 检查是否为离线模式
+        if (!player.isOnlineMode()) {
+            logger.info("玩家 {} 使用离线模式登录，跳过 LittleSkin 验证", username);
+            return;
+        }
+
+        // 检查玩家属性是否为空
+        if (profile.getProperties().isEmpty()) {
+            logger.info("玩家 {} 的属性列表为空", username);
+            player.disconnect(Component.text(
+                "无法获取玩家属性，请确保正确配置了游戏客户端",
+                NamedTextColor.RED
+            ));
+            return;
+        }
         
         // 检查玩家的 textures 属性
         Optional<GameProfile.Property> textures = profile.getProperties().stream()
             .filter(prop -> "textures".equals(prop.getName()))
             .findFirst();
 
-        if (textures.isPresent()) {
-            try {
-                String value = textures.get().getValue();
-                String decoded = new String(Base64.getDecoder().decode(value));
-                if (decoded.contains("littleskin.cn")) {
-                    setLittleSkinAuthenticated(player, value);
-                }
-            } catch (Exception e) {
-                logger.error("解析 textures 值时出错", e);
+        logger.info("玩家 {} 是否有 textures 属性: {}", username, textures.isPresent());
+        
+        if (!textures.isPresent()) {
+            logger.info("玩家 {} 没有 textures 属性", username);
+            player.disconnect(Component.text(
+                "无法获取玩家皮肤信息，请确保正确配置了游戏客户端",
+                NamedTextColor.RED
+            ));
+            return;
+        }
+
+        try {
+            String value = textures.get().getValue();
+            logger.info("玩家 {} 的 textures 值: {}", username, value);
+            
+            if (value == null || value.isEmpty()) {
+                logger.info("玩家 {} 的 textures 值为空", username);
+                player.disconnect(Component.text(
+                    "无法获取玩家皮肤信息，请确保正确配置了游戏客户端",
+                    NamedTextColor.RED
+                ));
+                return;
             }
+
+            String decoded;
+            try {
+                decoded = new String(Base64.getDecoder().decode(value));
+                logger.info("玩家 {} 的解码后 textures 值: {}", username, decoded);
+            } catch (IllegalArgumentException e) {
+                logger.error("解码玩家 {} 的 textures 值时出错: {}", username, e.getMessage());
+                player.disconnect(Component.text(
+                    "皮肤信息格式错误，请确保正确配置了游戏客户端",
+                    NamedTextColor.RED
+                ));
+                return;
+            }
+            
+            if (decoded.contains("littleskin.cn")) {
+                logger.info("检测到玩家 {} 使用 LittleSkin 验证", username);
+                setLittleSkinAuthenticated(player, value);
+            } else {
+                logger.info("玩家 {} 未使用 LittleSkin 验证", username);
+            }
+        } catch (Exception e) {
+            logger.error("处理玩家 {} 的 textures 值时出错: {}", username, e.getMessage());
+            player.disconnect(Component.text(
+                "处理皮肤信息时出错，请稍后重试",
+                NamedTextColor.RED
+            ));
+            return;
         }
         
         logger.info("玩家 {} 是否使用 LittleSkin 验证: {}", username, isLittleSkinAuthenticated(player));
@@ -115,8 +183,20 @@ public class LittleSkinCheckPlugin {
     @Subscribe
     public void onPlayerDisconnect(DisconnectEvent event) {
         Player player = event.getPlayer();
-        littleSkinAuthenticatedPlayers.remove(player.getUniqueId());
-        littleSkinTokens.remove(player.getUniqueId());
-        logger.info("已清除玩家 {} 的 LittleSkin 认证状态", player.getUsername());
+        UUID uuid = player.getUniqueId();
+        String username = player.getUsername();
+        
+        logger.info("玩家 {} 断开连接，清理认证状态...", username);
+        
+        if (littleSkinAuthenticatedPlayers.remove(uuid)) {
+            logger.info("已移除玩家 {} 的认证状态", username);
+        }
+        
+        if (littleSkinTokens.remove(uuid) != null) {
+            logger.info("已移除玩家 {} 的认证令牌", username);
+        }
+        
+        logger.info("玩家 {} 的认证状态清理完成", username);
+        logger.info("当前认证玩家数量: {}", littleSkinAuthenticatedPlayers.size());
     }
 }
