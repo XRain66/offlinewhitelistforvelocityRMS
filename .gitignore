@@ -1,0 +1,26 @@
+# Gradle
+.gradle/
+build/
+gradle.properties
+
+# IDE
+.idea/
+*.iml
+.settings/
+.project
+.classpath
+
+# Compiled files
+*.class
+build/*.jar
+!gradle-wrapper.jar
+
+# Logs
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Don't ignore Maven repository
+!Maven-Local-Repository/**/*.jar

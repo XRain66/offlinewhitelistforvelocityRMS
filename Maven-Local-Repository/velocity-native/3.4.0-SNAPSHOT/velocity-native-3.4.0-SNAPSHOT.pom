@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd" xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <!-- This module was also published with a richer model, Gradle metadata,  -->
+  <!-- which should be used instead. Do not delete the following line which  -->
+  <!-- is to indicate to Gradle or any Gradle module metadata file consumer  -->
+  <!-- that they should prefer consuming it instead. -->
+  <!-- do_not_remove: published-with-gradle-metadata -->
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.velocitypowered</groupId>
+  <artifactId>velocity-native</artifactId>
+  <version>3.4.0-SNAPSHOT</version>
+  <name>Velocity</name>
+  <description>The modern, next-generation Minecraft server proxy</description>
+  <url>https://papermc.io/software/velocity</url>
+  <scm>
+    <connection>scm:git:https://github.com/PaperMC/Velocity.git</connection>
+    <developerConnection>scm:git:https://github.com/PaperMC/Velocity.git</developerConnection>
+    <url>https://github.com/PaperMC/Velocity</url>
+  </scm>
+  <dependencies>
+    <dependency>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>25.1-jre</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-handler</artifactId>
+      <version>4.1.114.Final</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.checkerframework</groupId>
+      <artifactId>checker-qual</artifactId>
+      <version>3.42.0</version>
+      <scope>runtime</scope>
+    </dependency>
+  </dependencies>
+</project>
