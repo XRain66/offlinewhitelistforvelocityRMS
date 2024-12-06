@@ -42,7 +42,12 @@ jobs:
         ./gradlew --version
 
     - name: Build with Gradle
-      run: ./gradlew build
+      env:
+        VERSION: ${{ github.event.inputs.version }}
+      run: |
+        ./gradlew clean build
+        echo "Built files in build/libs directory:"
+        ls -la build/libs/
 
     - name: Create Release
       id: create_release

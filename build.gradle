@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'com.example'
-version = '1.0.0'
+version = System.getenv("VERSION") ?: '1.0.0'
 
 repositories {
     mavenCentral()
@@ -21,7 +21,7 @@ dependencies {
 }
 
 shadowJar {
-    archiveBaseName.set(project.name)
+    archiveBaseName.set('offlinewhitelistforvelocityRMS')
     archiveClassifier.set('')
     archiveVersion.set(project.version.toString())
 }
