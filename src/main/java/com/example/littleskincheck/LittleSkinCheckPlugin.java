@@ -3,6 +3,7 @@ package com.example.littleskincheck;
 import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.LoginEvent;
+import com.velocitypowered.api.event.connection.PreLoginEvent;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.plugin.Plugin;
@@ -22,8 +23,11 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Plugin(
     id = "littleskincheck",
@@ -38,6 +42,7 @@ public class LittleSkinCheckPlugin {
     private final WhitelistManager whitelistManager;
     private final Set<UUID> littleSkinAuthenticatedPlayers = new HashSet<>();
     private final Map<UUID, String> littleSkinTokens = new HashMap<>();
+    private final Map<String, String> playerServerIds = new ConcurrentHashMap<>();
 
     @Inject
     public LittleSkinCheckPlugin(ProxyServer server, Logger logger, @DataDirectory Path dataDirectory) {
@@ -54,37 +59,22 @@ public class LittleSkinCheckPlugin {
         logger.info("LittleSkin Check plugin is initializing...");
     }
 
-    public void setLittleSkinAuthenticated(Player player, String token) {
-        logger.info("正在设置玩家 {} 的 LittleSkin 认证状态...", player.getUsername());
-        UUID uuid = player.getUniqueId();
-        littleSkinAuthenticatedPlayers.add(uuid);
-        logger.info("已添加玩家 UUID {} 到认证列表", uuid);
-        
-        if (token != null) {
-            littleSkinTokens.put(uuid, token);
-            logger.info("已保存玩家 {} 的认证令牌", player.getUsername());
-        }
-        
-        logger.info("玩家 {} 的 LittleSkin 认证状态设置完成", player.getUsername());
-        logger.info("当前认证玩家数量: {}", littleSkinAuthenticatedPlayers.size());
+    @Subscribe
+    public void onPreLogin(PreLoginEvent event) {
+        String username = event.getUsername();
+        // 生成一个随机的 serverId
+        String serverId = UUID.randomUUID().toString().replace("-", "");
+        playerServerIds.put(username, serverId);
+        logger.debug("为玩家 {} 生成 serverId: {}", username, serverId);
     }
 
-    public boolean isLittleSkinAuthenticated(Player player) {
-        boolean result = littleSkinAuthenticatedPlayers.contains(player.getUniqueId());
-        logger.info("检查玩家 {} 的认证状态: {}", player.getUsername(), result);
-        return result;
-    }
-
-    public String getLittleSkinToken(Player player) {
-        String token = littleSkinTokens.get(player.getUniqueId());
-        logger.info("获取玩家 {} 的认证令牌: {}", player.getUsername(), token != null ? "存在" : "不存在");
-        return token;
-    }
-
-    private String fetchLittleSkinProfile(String username) {
+    private String fetchLittleSkinProfile(String username, String serverId) {
         try {
-            // 使用正确的 API 端点
-            String apiUrl = "https://littleskin.cn/api/yggdrasil/sessionserver/session/minecraft/profile/" + username;
+            String apiUrl = String.format(
+                "https://littleskin.cn/api/yggdrasil/sessionserver/session/minecraft/hasJoined?username=%s&serverId=%s",
+                URLEncoder.encode(username, StandardCharsets.UTF_8),
+                URLEncoder.encode(serverId, StandardCharsets.UTF_8)
+            );
             logger.info("正在从 {} 获取玩家信息", apiUrl);
             
             URL url = new URL(apiUrl);
@@ -129,7 +119,6 @@ public class LittleSkinCheckPlugin {
             } else {
                 logger.warn("API 请求失败，响应代码: {}", responseCode);
                 
-                // 读取错误信息
                 try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(conn.getErrorStream()))) {
                     StringBuilder errorResponse = new StringBuilder();
                     String line;
@@ -160,7 +149,6 @@ public class LittleSkinCheckPlugin {
                 if (value != null && !value.isEmpty()) {
                     String decoded = new String(Base64.getDecoder().decode(value));
                     logger.debug("玩家 {} 的皮肤信息: {}", player.getUsername(), decoded);
-                    // 检查是否包含 Mojang 的域名
                     return decoded.contains("textures.minecraft.net");
                 }
             }
@@ -184,8 +172,21 @@ public class LittleSkinCheckPlugin {
             return;
         }
         
+        logger.info("玩家 {} 不是正版玩家，开始尝试littleskin登录", username);
+        
+        // 获取之前生成的 serverId
+        String serverId = playerServerIds.remove(username);
+        if (serverId == null) {
+            logger.error("无法获取玩家 {} 的 serverId", username);
+            event.setResult(LoginEvent.ComponentResult.denied(Component.text(
+                "验证失败，请重新进入服务器",
+                NamedTextColor.RED
+            )));
+            return;
+        }
+        
         // 尝试从 LittleSkin API 获取玩家信息
-        String texturesValue = fetchLittleSkinProfile(username);
+        String texturesValue = fetchLittleSkinProfile(username, serverId);
         
         if (texturesValue != null) {
             try {
@@ -259,7 +260,36 @@ public class LittleSkinCheckPlugin {
             logger.info("已移除玩家 {} 的认证令牌", username);
         }
         
+        playerServerIds.remove(username);
+        
         logger.info("玩家 {} 的认证状态清理完成", username);
         logger.info("当前认证玩家数量: {}", littleSkinAuthenticatedPlayers.size());
+    }
+
+    public void setLittleSkinAuthenticated(Player player, String token) {
+        logger.info("正在设置玩家 {} 的 LittleSkin 认证状态...", player.getUsername());
+        UUID uuid = player.getUniqueId();
+        littleSkinAuthenticatedPlayers.add(uuid);
+        logger.info("已添加玩家 UUID {} 到认证列表", uuid);
+        
+        if (token != null) {
+            littleSkinTokens.put(uuid, token);
+            logger.info("已保存玩家 {} 的认证令牌", player.getUsername());
+        }
+        
+        logger.info("玩家 {} 的 LittleSkin 认证状态设置完成", player.getUsername());
+        logger.info("当前认证玩家数量: {}", littleSkinAuthenticatedPlayers.size());
+    }
+
+    public boolean isLittleSkinAuthenticated(Player player) {
+        boolean result = littleSkinAuthenticatedPlayers.contains(player.getUniqueId());
+        logger.info("检查玩家 {} 的认证状态: {}", player.getUsername(), result);
+        return result;
+    }
+
+    public String getLittleSkinToken(Player player) {
+        String token = littleSkinTokens.get(player.getUniqueId());
+        logger.info("获取玩家 {} 的认证令牌: {}", player.getUsername(), token != null ? "存在" : "不存在");
+        return token;
     }
 }
