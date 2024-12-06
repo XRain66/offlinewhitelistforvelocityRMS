@@ -119,15 +119,20 @@ public class LittleSkinCheckPlugin {
             } else {
                 logger.warn("API 请求失败，响应代码: {}", responseCode);
                 
-                try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(conn.getErrorStream()))) {
-                    StringBuilder errorResponse = new StringBuilder();
-                    String line;
-                    while ((line = errorReader.readLine()) != null) {
-                        errorResponse.append(line);
+                InputStream errorStream = conn.getErrorStream();
+                if (errorStream != null) {
+                    try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(errorStream, StandardCharsets.UTF_8))) {
+                        StringBuilder errorResponse = new StringBuilder();
+                        String line;
+                        while ((line = errorReader.readLine()) != null) {
+                            errorResponse.append(line);
+                        }
+                        logger.warn("错误响应: {}", errorResponse.toString());
+                    } catch (Exception e) {
+                        logger.error("读取错误响应时出错", e);
                     }
-                    logger.warn("错误响应: {}", errorResponse.toString());
-                } catch (Exception e) {
-                    logger.error("读取错误响应时出错", e);
+                } else {
+                    logger.warn("没有错误响应内容");
                 }
             }
         } catch (Exception e) {
