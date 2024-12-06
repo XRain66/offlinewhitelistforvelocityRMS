@@ -10,14 +10,16 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.slf4j.Logger;
+import com.velocitypowered.api.util.GameProfile;
 
 import java.nio.file.Path;
+import java.util.Optional;
 
 @Plugin(
     id = "littleskincheck",
     name = "LittleSkin Check",
     version = "1.0.0",
-    description = "Checks if players are using LittleSkin authentication and manages whitelist",
+    description = "Checks if players are using LittleSkin authentication",
     authors = {"YourName"}
 )
 public class LittleSkinCheckPlugin {
@@ -37,8 +39,12 @@ public class LittleSkinCheckPlugin {
     @Subscribe
     public void onLogin(LoginEvent event) {
         Player player = event.getPlayer();
+        GameProfile profile = player.getGameProfile();
         
-        if (player.isLittleSkinAuthenticated()) {
+        // 检查是否是 LittleSkin 验证
+        boolean isLittleSkin = isLittleSkinAuthentication(profile);
+        
+        if (isLittleSkin) {
             String username = player.getUsername();
             if (!whitelistManager.isWhitelisted(username)) {
                 event.setResult(LoginEvent.ComponentResult.denied(Component.text(
@@ -50,5 +56,19 @@ public class LittleSkinCheckPlugin {
                 logger.info("玩家 {} 使用 LittleSkin 登录成功", username);
             }
         }
+    }
+
+    private boolean isLittleSkinAuthentication(GameProfile profile) {
+        // LittleSkin 的特征是使用 littleskin.cn 域名
+        Optional<GameProfile.Property> textures = profile.getProperties().stream()
+            .filter(prop -> "textures".equals(prop.getName()))
+            .findFirst();
+
+        if (textures.isPresent()) {
+            String value = textures.get().getValue();
+            // 检查 textures 属性中是否包含 littleskin.cn
+            return value.contains("littleskin.cn");
+        }
+        return false;
     }
 }
