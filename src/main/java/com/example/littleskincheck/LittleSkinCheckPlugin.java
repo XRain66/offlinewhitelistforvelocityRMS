@@ -2,7 +2,7 @@ package com.example.littleskincheck;
 
 import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
-import com.velocitypowered.api.event.connection.PostLoginEvent;
+import com.velocitypowered.api.event.connection.LoginEvent;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.plugin.Plugin;
@@ -14,6 +14,10 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.slf4j.Logger;
 import com.velocitypowered.api.util.GameProfile;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -73,77 +77,88 @@ public class LittleSkinCheckPlugin {
         return token;
     }
 
+    private String fetchLittleSkinProfile(String username) {
+        try {
+            String apiUrl = "https://littleskin.cn/api/yggdrasil/api/profiles/minecraft/" + username;
+            URL url = new URL(apiUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            
+            if (conn.getResponseCode() == 200) {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                StringBuilder response = new StringBuilder();
+                String line;
+                
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+                
+                JsonObject json = JsonParser.parseString(response.toString()).getAsJsonArray().get(0).getAsJsonObject();
+                if (json.has("properties")) {
+                    return json.get("properties").getAsJsonArray()
+                        .get(0).getAsJsonObject()
+                        .get("value").getAsString();
+                }
+            }
+        } catch (Exception e) {
+            logger.error("获取 LittleSkin 配置文件时出错: {}", e.getMessage());
+            logger.debug("错误详情:", e);
+        }
+        return null;
+    }
+
     @Subscribe
-    public void onPostLogin(PostLoginEvent event) {
+    public void onLogin(LoginEvent event) {
         Player player = event.getPlayer();
-        GameProfile profile = player.getGameProfile();
         String username = player.getUsername();
         
         logger.info("玩家 {} 正在尝试登录...", username);
-        logger.info("检查玩家 {} 的属性...", username);
-        logger.info("玩家 {} 的所有属性: {}", username, profile.getProperties());
         
-        // 获取所有属性并打印
-        profile.getProperties().forEach(prop -> {
-            logger.info("属性: {} = {}", prop.getName(), prop.getValue());
-            if (prop.getSignature() != null) {
-                logger.info("签名: {}", prop.getSignature());
-            }
-        });
-
-        // 检查玩家的 textures 属性
-        Optional<GameProfile.Property> textures = profile.getProperties().stream()
-            .filter(prop -> "textures".equals(prop.getName()))
-            .findFirst();
-
-        logger.info("玩家 {} 是否有 textures 属性: {}", username, textures.isPresent());
+        // 尝试从 LittleSkin API 获取玩家信息
+        String texturesValue = fetchLittleSkinProfile(username);
         
-        boolean isLittleSkin = false;
-        if (textures.isPresent()) {
+        if (texturesValue != null) {
             try {
-                String value = textures.get().getValue();
-                logger.info("玩家 {} 的 textures 值: {}", username, value);
+                // 解码并检查是否包含 littleskin.cn
+                String decoded = new String(Base64.getDecoder().decode(texturesValue));
+                logger.info("玩家 {} 的解码后 textures 值: {}", username, decoded);
                 
-                if (value != null && !value.isEmpty()) {
-                    String decoded = new String(Base64.getDecoder().decode(value));
-                    logger.info("玩家 {} 的解码后 textures 值: {}", username, decoded);
+                if (decoded.contains("littleskin.cn")) {
+                    logger.info("检测到玩家 {} 使用 LittleSkin 验证", username);
                     
-                    if (decoded.contains("littleskin.cn")) {
-                        logger.info("检测到玩家 {} 使用 LittleSkin 验证", username);
-                        isLittleSkin = true;
-                        setLittleSkinAuthenticated(player, value);
-                    } else {
-                        logger.info("玩家 {} 未使用 LittleSkin 验证", username);
+                    // 检查白名单
+                    boolean isWhitelisted = whitelistManager.isWhitelisted(username);
+                    logger.info("玩家 {} 是否在白名单中: {}", username, isWhitelisted);
+                    
+                    if (!isWhitelisted) {
+                        event.setResult(LoginEvent.ComponentResult.denied(Component.text(
+                            "对不起，该玩家不允许使用littleskin验证方式，请联系管理员",
+                            NamedTextColor.RED
+                        )));
+                        logger.info("玩家 {} 使用 LittleSkin 登录被拒绝（不在白名单中）", username);
+                        return;
                     }
+                    
+                    // 设置玩家的 textures 属性
+                    GameProfile.Property texturesProperty = new GameProfile.Property("textures", texturesValue);
+                    GameProfile profile = player.getGameProfile();
+                    Collection<GameProfile.Property> properties = new ArrayList<>(profile.getProperties());
+                    properties.add(texturesProperty);
+                    
+                    // 保存认证状态
+                    setLittleSkinAuthenticated(player, texturesValue);
+                    
+                    logger.info("已为玩家 {} 设置 LittleSkin 属性", username);
+                } else {
+                    logger.info("玩家 {} 未使用 LittleSkin 验证", username);
                 }
             } catch (Exception e) {
                 logger.error("处理玩家 {} 的 textures 值时出错: {}", username, e.getMessage());
                 logger.debug("错误详情:", e);
             }
-        }
-        
-        logger.info("玩家 {} 是否使用 LittleSkin 验证: {}", username, isLittleSkin);
-        
-        if (isLittleSkin) {
-            logger.info("检查玩家 {} 是否在白名单中...", username);
-            boolean isWhitelisted = whitelistManager.isWhitelisted(username);
-            logger.info("玩家 {} 是否在白名单中: {}", username, isWhitelisted);
-            
-            if (!isWhitelisted) {
-                player.disconnect(Component.text(
-                    "对不起，该玩家不允许使用littleskin验证方式，请联系管理员",
-                    NamedTextColor.RED
-                ));
-                logger.info("玩家 {} 使用 LittleSkin 登录被拒绝（不在白名单中）", username);
-            } else {
-                player.sendMessage(Component.text(
-                    "欢迎使用 LittleSkin 验证登录！",
-                    NamedTextColor.GREEN
-                ));
-                logger.info("玩家 {} 使用 LittleSkin 登录成功", username);
-            }
         } else {
-            logger.info("玩家 {} 未使用 LittleSkin 验证，允许登录", username);
+            logger.info("无法获取玩家 {} 的 LittleSkin 配置文件", username);
         }
     }
 
