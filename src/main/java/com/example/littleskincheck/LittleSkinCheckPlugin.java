@@ -13,6 +13,10 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.slf4j.Logger;
 import com.velocitypowered.api.util.GameProfile;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -94,11 +98,16 @@ public class LittleSkinCheckPlugin {
                 }
                 reader.close();
                 
-                JsonObject json = JsonParser.parseString(response.toString()).getAsJsonArray().get(0).getAsJsonObject();
-                if (json.has("properties")) {
-                    return json.get("properties").getAsJsonArray()
-                        .get(0).getAsJsonObject()
-                        .get("value").getAsString();
+                JsonArray jsonArray = JsonParser.parseString(response.toString()).getAsJsonArray();
+                if (jsonArray.size() > 0) {
+                    JsonObject json = jsonArray.get(0).getAsJsonObject();
+                    if (json.has("properties")) {
+                        JsonArray properties = json.get("properties").getAsJsonArray();
+                        if (properties.size() > 0) {
+                            return properties.get(0).getAsJsonObject()
+                                .get("value").getAsString();
+                        }
+                    }
                 }
             }
         } catch (Exception e) {
@@ -141,7 +150,7 @@ public class LittleSkinCheckPlugin {
                     }
                     
                     // 设置玩家的 textures 属性
-                    GameProfile.Property texturesProperty = new GameProfile.Property("textures", texturesValue);
+                    GameProfile.Property texturesProperty = new GameProfile.Property("textures", texturesValue, "");
                     GameProfile profile = player.getGameProfile();
                     Collection<GameProfile.Property> properties = new ArrayList<>(profile.getProperties());
                     properties.add(texturesProperty);
