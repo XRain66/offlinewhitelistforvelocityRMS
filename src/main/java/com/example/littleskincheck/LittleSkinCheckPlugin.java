@@ -68,23 +68,33 @@ public class LittleSkinCheckPlugin {
                 }
                 
                 // 检查白名单
+                logger.info("检查白名单 - 玩家名: {}, 转小写后: {}", username, username.toLowerCase());
+                logger.info("当前白名单列表: {}", whitelistManager.getWhitelistedPlayers());
+                
                 if (!whitelistManager.isWhitelisted(username)) {
+                    logger.warn("玩家 {} 不在白名单中", username);
                     event.setResult(ResultedEvent.ComponentResult.denied(
                         Component.text("你不在白名单中！").color(NamedTextColor.RED)
                     ));
                     return;
                 }
+                logger.info("玩家 {} 在白名单中，允许登录", username);
             } else {
                 // 不是 LittleSkin 认证，检查是否为正版
                 if (player.isOnlineMode()) {
                     logger.info("玩家 {} 使用 Mojang 正版验证成功", username);
                     // 正版玩家的白名单检查
+                    logger.info("检查白名单 - 玩家名: {}, 转小写后: {}", username, username.toLowerCase());
+                    logger.info("当前白名单列表: {}", whitelistManager.getWhitelistedPlayers());
+                    
                     if (!whitelistManager.isWhitelisted(username)) {
+                        logger.warn("玩家 {} 不在白名单中", username);
                         event.setResult(ResultedEvent.ComponentResult.denied(
                             Component.text("你不在白名单中！").color(NamedTextColor.RED)
                         ));
                         return;
                     }
+                    logger.info("玩家 {} 在白名单中，允许登录", username);
                 } else {
                     logger.info("玩家 {} 既不是 LittleSkin 也不是正版验证", username);
                     event.setResult(ResultedEvent.ComponentResult.denied(
@@ -106,10 +116,16 @@ public class LittleSkinCheckPlugin {
         
         if (player.isOnlineMode()) {
             // 原有的正版验证逻辑
+            logger.info("检查白名单 - 玩家名: {}, 转小写后: {}", username, username.toLowerCase());
+            logger.info("当前白名单列表: {}", whitelistManager.getWhitelistedPlayers());
+            
             if (!whitelistManager.isWhitelisted(username)) {
+                logger.warn("玩家 {} 不在白名单中", username);
                 event.setResult(ResultedEvent.ComponentResult.denied(
                     Component.text("你不在白名单中！").color(NamedTextColor.RED)
                 ));
+            } else {
+                logger.info("玩家 {} 在白名单中，允许登录", username);
             }
         } else {
             // 原有的离线验证逻辑

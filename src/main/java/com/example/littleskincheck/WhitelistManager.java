@@ -29,14 +29,27 @@ public class WhitelistManager {
     private void loadWhitelist() {
         try {
             if (!Files.exists(configPath)) {
+                logger.info("白名单文件不存在，创建新文件");
                 Files.createDirectories(configPath.getParent());
                 whitelist = new HashSet<>();
                 saveWhitelist();
             } else {
+                logger.info("正在加载白名单文件: {}", configPath);
+                String content = new String(Files.readAllBytes(configPath));
+                logger.info("白名单文件内容: {}", content);
+                
                 try (Reader reader = Files.newBufferedReader(configPath)) {
                     whitelist = gson.fromJson(reader, new TypeToken<HashSet<String>>(){}.getType());
                     if (whitelist == null) {
+                        logger.warn("白名单为空，创建新的白名单");
                         whitelist = new HashSet<>();
+                    } else {
+                        logger.info("成功加载白名单，包含 {} 个玩家: {}", whitelist.size(), whitelist);
+                        // 检查特定玩家是否在白名单中
+                        String testPlayer = "XRain666";
+                        boolean isInList = whitelist.contains(testPlayer.toLowerCase());
+                        logger.info("测试玩家 {} (小写: {}) 是否在白名单中: {}", 
+                            testPlayer, testPlayer.toLowerCase(), isInList);
                     }
                 }
             }
@@ -58,7 +71,11 @@ public class WhitelistManager {
     }
 
     public boolean isWhitelisted(String username) {
-        return whitelist.contains(username.toLowerCase());
+        String lowercaseUsername = username.toLowerCase();
+        boolean result = whitelist.contains(lowercaseUsername);
+        logger.info("检查白名单 - 玩家: {}, 小写: {}, 结果: {}, 当前白名单: {}", 
+            username, lowercaseUsername, result, whitelist);
+        return result;
     }
 
     public void addPlayer(String username) {
