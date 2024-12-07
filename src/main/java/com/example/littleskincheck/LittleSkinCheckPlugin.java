@@ -19,11 +19,11 @@ import java.nio.file.Path;
 import java.util.*;
 
 @Plugin(
-    id = "littleskincheck",
-    name = "LittleSkin Check",
-    version = "1.0.0",
+    id = "littleskinwhitelist",
+    name = "LittleSkin Whitelist",
+    version = "1.1.0",
     description = "Checks if players are using LittleSkin authentication",
-    authors = {"YourName"}
+    authors = {"XRain666"}
 )
 public class LittleSkinCheckPlugin {
     private final ProxyServer server;
@@ -44,7 +44,15 @@ public class LittleSkinCheckPlugin {
 
     @Subscribe
     public void onProxyInitialization(ProxyInitializeEvent event) {
-        logger.info("LittleSkin Check plugin is initializing...");
+        logger.info("\n" +
+                   "██╗     ███████╗██╗    ██╗\n" +
+                   "██║     ██╔════╝██║    ██║\n" +
+                   "██║     ███████╗██║ █╗ ██║\n" +
+                   "██║     ╚════██║██║███╗██║\n" +
+                   "███████╗███████║╚███╔███╔╝\n" +
+                   "╚══════╝╚══════╝ ╚══╝╚══╝\n");
+        logger.info("LittleSkin Whitelist plugin is initializing...");
+        logger.info("Version: 1.1.0");
     }
 
     @Subscribe
@@ -83,18 +91,8 @@ public class LittleSkinCheckPlugin {
                 // 不是 LittleSkin 认证，检查是否为正版
                 if (player.isOnlineMode()) {
                     logger.info("玩家 {} 使用 Mojang 正版验证成功", username);
-                    // 正版玩家的白名单检查
-                    logger.info("检查白名单 - 玩家名: {}, 转小写后: {}", username, username.toLowerCase());
-                    logger.info("当前白名单列表: {}", whitelistManager.getWhitelistedPlayers());
-                    
-                    if (!whitelistManager.isWhitelisted(username)) {
-                        logger.warn("玩家 {} 不在白名单中", username);
-                        event.setResult(ResultedEvent.ComponentResult.denied(
-                            Component.text("你不在白名单中！").color(NamedTextColor.RED)
-                        ));
-                        return;
-                    }
-                    logger.info("玩家 {} 在白名单中，允许登录", username);
+                    logger.info("玩家{}为正版验证，跳过littleskin白名单检查", username);
+                    return;
                 } else {
                     logger.info("玩家 {} 既不是 LittleSkin 也不是正版验证", username);
                     event.setResult(ResultedEvent.ComponentResult.denied(
@@ -105,33 +103,10 @@ public class LittleSkinCheckPlugin {
             }
         } catch (Exception e) {
             // 如果新 API 不可用，回退到原有的验证逻辑
-            logger.debug("新的 LittleSkin API 不可用，使用原有验证逻辑: {}", e.getMessage());
-            handleLegacyAuthentication(event);
-        }
-    }
-
-    private void handleLegacyAuthentication(LoginEvent event) {
-        Player player = event.getPlayer();
-        String username = player.getUsername();
-        
-        if (player.isOnlineMode()) {
-            // 原有的正版验证逻辑
-            logger.info("检查白名单 - 玩家名: {}, 转小写后: {}", username, username.toLowerCase());
-            logger.info("当前白名单列表: {}", whitelistManager.getWhitelistedPlayers());
-            
-            if (!whitelistManager.isWhitelisted(username)) {
-                logger.warn("玩家 {} 不在白名单中", username);
-                event.setResult(ResultedEvent.ComponentResult.denied(
-                    Component.text("你不在白名单中！").color(NamedTextColor.RED)
-                ));
-            } else {
-                logger.info("玩家 {} 在白名单中，允许登录", username);
-            }
-        } else {
-            // 原有的离线验证逻辑
             event.setResult(ResultedEvent.ComponentResult.denied(
-                Component.text("请使用 LittleSkin 或正版账户进行验证！").color(NamedTextColor.RED)
-            ));
+                        Component.text("出现未知错误，请联系管理员").color(NamedTextColor.RED)
+                    ));
+            logger.error("出现未知错误，请提交日志文件至issues", e);
         }
     }
 
