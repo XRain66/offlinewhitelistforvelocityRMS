@@ -66,8 +66,7 @@ jobs:
           LittleSkin 白名单验证插件 v${{ github.event.inputs.version }}
           
           ### 更新内容
-          - 这是第一版
-          
+          - 修复了一堆bug
           ### 使用说明
           1. 下载插件 JAR 文件
           2. 将文件放入 Velocity 服务器的 plugins 目录
