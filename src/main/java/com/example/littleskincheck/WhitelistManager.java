@@ -39,17 +39,18 @@ public class WhitelistManager {
                 logger.info("白名单文件内容: {}", content);
                 
                 try (Reader reader = Files.newBufferedReader(configPath)) {
-                    whitelist = gson.fromJson(reader, new TypeToken<HashSet<String>>(){}.getType());
-                    if (whitelist == null) {
+                    Set<String> loadedList = gson.fromJson(reader, new TypeToken<HashSet<String>>(){}.getType());
+                    whitelist = new HashSet<>();
+                    
+                    if (loadedList == null) {
                         logger.warn("白名单为空，创建新的白名单");
-                        whitelist = new HashSet<>();
                     } else {
+                        // 确保所有用户名都转换为小写
+                        for (String name : loadedList) {
+                            whitelist.add(name.toLowerCase());
+                            logger.info("添加玩家到白名单: {} -> {}", name, name.toLowerCase());
+                        }
                         logger.info("成功加载白名单，包含 {} 个玩家: {}", whitelist.size(), whitelist);
-                        // 检查特定玩家是否在白名单中
-                        String testPlayer = "XRain666";
-                        boolean isInList = whitelist.contains(testPlayer.toLowerCase());
-                        logger.info("测试玩家 {} (小写: {}) 是否在白名单中: {}", 
-                            testPlayer, testPlayer.toLowerCase(), isInList);
                     }
                 }
             }
