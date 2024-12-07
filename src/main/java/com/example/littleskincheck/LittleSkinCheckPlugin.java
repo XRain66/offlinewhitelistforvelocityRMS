@@ -82,7 +82,7 @@ public class LittleSkinCheckPlugin {
                 if (!whitelistManager.isWhitelisted(username)) {
                     logger.warn("玩家 {} 不在白名单中", username);
                     event.setResult(ResultedEvent.ComponentResult.denied(
-                        Component.text("你不在白名单中！").color(NamedTextColor.RED)
+                        Component.text("对不起，该玩家不允许littleksin登录，请联系管理员").color(NamedTextColor.RED)
                     ));
                     return;
                 }
