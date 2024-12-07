@@ -1,6 +1,11 @@
 # LittleSkin 白名单验证插件
 
-这是一个用于 Velocity 服务器的插件，用于管理使用 LittleSkin 验证方式登录的玩家。插件会检查玩家的验证方式，如果玩家使用 LittleSkin 验证登录但不在白名单中，将被拒绝访问。
+这是一个用于 Velocity 服务器的插件，用于管理使用 LittleSkin 验证方式登录的玩家。插件会检查玩家的验证方式，如果玩家使用 LittleSkin 验证登录但不在白名单中，将被拒绝访问。这是为了解决可能存在的安全问题
+
+## 注意！
+
+本插件为为定制版本velocity使用的插件，如果需要使用，请在 [VelocityRMS Releases](https://github.com/XRain66/Velocity/releases) 下载定制velocity版本
+
 
 ## 功能特点
 
@@ -47,6 +52,8 @@
    - 如果玩家不在白名单中，将显示提示信息并拒绝登录
 
 ## 常见问题
+
+如果有无法解决的问题请附上日志提交issues
 
 **Q: 如何添加玩家到白名单？**
 A: 直接编辑 `plugins/littleskincheck/whitelist.json` 文件，添加玩家名称即可。
